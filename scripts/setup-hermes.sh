@@ -57,10 +57,18 @@ create_profile ping "$PING_PROFILE" "Sigap: pengingat pembayaran"
 
 ECHO_DIR="$HERMES_HOME/profiles/$ECHO_PROFILE"
 
+# Isi nilai bawaan hanya bila belum ada, supaya menjalankan ulang skrip tidak menimpa pilihan Anda.
+set_env_default() {
+  grep -q "^$2=" "$1" 2>/dev/null || set_env "$1" "$2" "$3"
+}
+
 # Echo adalah nomor toko: siapa pun boleh mengirim pesan. Itu sebabnya Echo tidak diberi alat apa pun.
-set_env "$ECHO_DIR/.env" WHATSAPP_ENABLED true
-set_env "$ECHO_DIR/.env" WHATSAPP_MODE bot
-set_env "$ECHO_DIR/.env" WHATSAPP_ALLOWED_USERS '*'
+set_env_default "$ECHO_DIR/.env" WHATSAPP_ENABLED true
+set_env_default "$ECHO_DIR/.env" WHATSAPP_MODE bot
+set_env_default "$ECHO_DIR/.env" WHATSAPP_ALLOWED_USERS '*'
+# Tanpa home channel, Hermes mengirim pesan sistem "No home channel is set" ke setiap pelanggan baru.
+# Isi OWNER_WHATSAPP dengan nomor pemilik toko (format 628xxx) saat menjalankan skrip ini.
+set_env_default "$ECHO_DIR/.env" WHATSAPP_HOME_CHANNEL "${OWNER_WHATSAPP:-none}"
 
 # Token yang dipakai hook Hermes saat melapor ke portal. Portal membaca berkas yang sama.
 mkdir -p "$DATA_DIR"

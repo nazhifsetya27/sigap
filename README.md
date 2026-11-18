@@ -39,7 +39,7 @@ Untuk pengembangan: `npm run dev` (server di 4310, antarmuka di 5173).
 ## Menyambungkan ke WhatsApp sungguhan
 
 1. Pasang Hermes Agent dan isi API key penyedia model di `~/.hermes/.env` (bawaan: `FENRIR_API_KEY`).
-2. Jalankan `scripts/setup-hermes.sh`. Skrip ini membuat profil `echo`, `tally`, dan `ping`, lalu memasang hook kecil di profil Echo.
+2. Jalankan `OWNER_WHATSAPP=628xxx scripts/setup-hermes.sh` dengan nomor pemilik toko. Skrip ini membuat profil `echo`, `tally`, dan `ping`, lalu memasang hook kecil di profil Echo.
 3. Ganti katalog contoh di `~/.hermes/profiles/echo/SOUL.md` dengan katalog toko Anda.
 4. Pasangkan WhatsApp: `hermes -p echo whatsapp`. Tunggu 30 detik, lalu jalankan gateway milik Echo: `hermes -p echo gateway install && hermes -p echo gateway start`. Echo memakai gateway sendiri, jadi gateway profil utama Anda tidak terganggu.
 5. Salin `.env.example` menjadi `.env`, isi `DATA_SOURCE=hermes`, dan jalankan ulang portal.
