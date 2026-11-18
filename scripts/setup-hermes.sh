@@ -82,8 +82,12 @@ cat <<EOF
 Selesai. Langkah berikutnya:
   1. Ganti katalog contoh di $ECHO_DIR/SOUL.md dengan katalog toko Anda.
   2. Pasangkan WhatsApp:        $HERMES_BIN -p $ECHO_PROFILE whatsapp
-  3. Jalankan ulang gateway:    $HERMES_BIN gateway restart
+  3. Tunggu 30 detik, lalu jalankan gateway milik Echo:
+                                $HERMES_BIN -p $ECHO_PROFILE gateway install && $HERMES_BIN -p $ECHO_PROFILE gateway start
+     (untuk mencoba saja tanpa memasang layanan: $HERMES_BIN -p $ECHO_PROFILE gateway run)
   4. Isi DATA_SOURCE=hermes di $ROOT/.env, lalu jalankan ulang portal.
+
+Echo memakai gateway sendiri (gateway.standalone), jadi gateway profil utama Anda tidak perlu dijalankan ulang.
 
 Pakai nomor WhatsApp khusus toko, bukan nomor pribadi. Sambungan lewat QR tidak resmi dan nomor bisa diblokir WhatsApp.
 EOF

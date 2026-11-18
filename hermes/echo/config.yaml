@@ -16,3 +16,9 @@ platform_toolsets:
   whatsapp: []
   whatsapp_cloud: []
   cli: []
+# WhatsApp pada profil selain profil utama hanya dilayani oleh gateway milik profil itu sendiri.
+gateway:
+  standalone: true
+# Balasan ke pelanggan tanpa awalan "Hermes Agent".
+whatsapp:
+  reply_prefix: ""
