@@ -1,0 +1,15 @@
+# Tally membaca isi chat pelanggan, jadi juga tanpa alat: hanya menerima teks dan mengembalikan JSON.
+model:
+  default: deepseek/deepseek-v4.1-flash
+  provider: fenrir
+providers:
+  fenrir:
+    base_url: https://oni.lio.id/v1
+    key_env: FENRIR_API_KEY
+    api_mode: chat_completions
+    discover_models: true
+agent:
+  reasoning_effort: low
+  max_turns: 2
+platform_toolsets:
+  cli: []

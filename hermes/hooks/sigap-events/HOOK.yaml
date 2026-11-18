@@ -1,0 +1,5 @@
+name: sigap-events
+description: Memberi tahu portal Sigap saat Echo mulai dan selesai membalas, supaya status di Kantor AI langsung berubah.
+events:
+  - agent:start
+  - agent:end

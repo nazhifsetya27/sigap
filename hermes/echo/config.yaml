@@ -1,0 +1,18 @@
+# Echo menerima chat dari orang yang tidak dikenal, jadi TIDAK diberi alat apa pun:
+# tidak ada terminal, berkas, browser, atau memori. Ia hanya bisa membalas teks.
+model:
+  default: deepseek/deepseek-v4.1-flash
+  provider: fenrir
+providers:
+  fenrir:
+    base_url: https://oni.lio.id/v1
+    key_env: FENRIR_API_KEY
+    api_mode: chat_completions
+    discover_models: true
+agent:
+  reasoning_effort: low
+  max_turns: 6
+platform_toolsets:
+  whatsapp: []
+  whatsapp_cloud: []
+  cli: []
