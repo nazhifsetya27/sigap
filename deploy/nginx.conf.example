@@ -1,0 +1,21 @@
+# Contoh reverse proxy untuk Sigap. Ganti sigap.contoh.id dengan domain Anda,
+# simpan di /etc/nginx/sites-available/, buat symlink ke sites-enabled, lalu pasang HTTPS
+# (misalnya dengan certbot --nginx). Jangan buka portal ke internet sebelum ACCESS_CODE diisi.
+server {
+    listen 80;
+    server_name sigap.contoh.id;
+
+    location / {
+        proxy_pass http://127.0.0.1:4310;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Hook Hermes memanggil alamat ini dari mesin yang sama; dari luar selalu ditolak.
+    location /api/ingest/ {
+        return 403;
+    }
+}

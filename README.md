@@ -46,6 +46,21 @@ Untuk pengembangan: `npm run dev` (server di 4310, antarmuka di 5173).
 
 Pakai nomor khusus toko. Sambungan lewat QR memakai tautan perangkat WhatsApp, bukan API resmi, sehingga nomor bisa diblokir.
 
+## Memasang di server
+
+Portal dijalankan di host yang sama dengan Hermes, sebagai layanan systemd tingkat pengguna:
+
+```bash
+git clone https://github.com/nazhifsetya27/sigap.git ~/sigap && cd ~/sigap
+npm ci && npm run build
+cp .env.example .env        # isi DATA_SOURCE=hermes dan ACCESS_CODE
+scripts/setup-hermes.sh
+mkdir -p ~/.config/systemd/user && cp deploy/sigap.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now sigap
+```
+
+Portal mendengarkan di `127.0.0.1:4310`. Untuk membukanya lewat domain, pakai `deploy/nginx.conf.example` dan pasang HTTPS. Tanpa domain, buka lewat terowongan SSH: `ssh -L 4310:127.0.0.1:4310 pengguna@server`.
+
 ## Soal angka biaya
 
 - Biaya Echo dibaca dari catatan pemakaian Hermes per percakapan. Biaya Tally dan Ping dicatat tiap kali mereka dijalankan.
