@@ -1,9 +1,10 @@
 import { config, type AgentKey } from './config.js';
 import { buildPingPrompt, parsePingResponse } from './agents/ping.js';
+import { escalationSignal, hasOrderSignal } from './agents/signals.js';
 import { buildTallyPrompt, orderEventText, parseTallyResponse } from './agents/tally.js';
 import { formatIdr } from './core/text.js';
 import { HOUR, MINUTE } from './core/time.js';
-import { gatewayStatus, profileExists, runOneShot } from './runtime/hermes.js';
+import { gatewayStatus, profileExists, runOneShot, type RunResult } from './runtime/hermes.js';
 import type { HermesSessionSource } from './sources/hermes-sessions.js';
 import { clock, type AgentStatus, type ConnectionStatus, type StatusProvider } from './status.js';
 import type { OrderRow, Store } from './store.js';
@@ -21,6 +22,12 @@ const FOLLOWUP_AFTER = envMs('FOLLOWUP_AFTER_MINUTES', 30 * MINUTE, MINUTE);
 const KEEP_FOR = envMs('KEEP_HOURS', 3 * HOUR, HOUR);
 const MAX_ATTEMPTS = 3;
 
+/** Bagian yang menyentuh Hermes dipisah supaya logika penjadwal bisa diuji tanpa memanggil model. */
+export interface WorkerDeps {
+  run: (profile: string, prompt: string) => Promise<RunResult>;
+  profileExists: (profile: string) => boolean;
+}
+
 /** Menggerakkan portal dari Hermes: menarik chat Echo, lalu menjalankan Tally dan Ping secara bergantian. */
 export class HermesWorker implements StatusProvider {
   private timers: NodeJS.Timeout[] = [];
@@ -31,8 +38,9 @@ export class HermesWorker implements StatusProvider {
 
   constructor(
     private readonly store: Store,
-    private readonly source: HermesSessionSource,
+    private readonly source: Pick<HermesSessionSource, 'poll' | 'lastResult'>,
     private readonly log: (msg: string) => void = () => undefined,
+    private readonly deps: WorkerDeps = { run: runOneShot, profileExists },
   ) {}
 
   start(): void {
@@ -81,32 +89,64 @@ export class HermesWorker implements StatusProvider {
     }
   }
 
+  /**
+   * Memeriksa chat yang sudah tenang. Operan ke admin dan ada-tidaknya pesanan dibaca dari
+   * balasan Echo tanpa biaya; Tally (yang memakai token) hanya dipanggil bila ada rekap pesanan.
+   */
   async runTally(): Promise<void> {
-    if (!profileExists(config.hermes.profiles.tally)) return;
     await this.exclusive(async () => {
-      const pending = this.store.conversationsNeedingAnalysis(Date.now(), TALLY_QUIET, 3);
+      const pending = this.store.conversationsNeedingAnalysis(Date.now(), TALLY_QUIET, 5);
       for (const conv of pending) {
         const messages = this.store.listMessages(conv.id);
         const upto = messages.length;
+        // Operan hanya dicari di pesan baru, supaya chat yang sudah Anda tutup tidak ditandai ulang.
+        const escalation = escalationSignal(messages.slice(conv.analyzed_upto));
+        if (escalation && conv.status !== 'needs_human') {
+          this.store.addEvent({
+            ts: Date.now(),
+            agent: 'echo',
+            kind: 'escalate',
+            text: `Mengoper chat ${conv.customer_ref} ke admin`,
+            needsHuman: true,
+            ref: conv.id,
+          });
+        }
+        if (!hasOrderSignal(messages)) {
+          this.store.markAnalyzed(
+            conv.id,
+            upto,
+            { needsHuman: escalation !== null, reason: escalation, summary: null, customerName: null },
+            Date.now(),
+          );
+          continue;
+        }
+        if (!this.deps.profileExists(config.hermes.profiles.tally)) {
+          // Ada pesanan tetapi Tally belum terpasang: catat operannya saja, pesanan direkap saat Tally siap.
+          if (escalation && conv.status !== 'needs_human') {
+            this.store.markAnalyzed(conv.id, conv.analyzed_upto, { needsHuman: true, reason: escalation, summary: null, customerName: null }, Date.now());
+          }
+          continue;
+        }
         const runId = this.store.startRun('tally', 'analyze', conv.id, Date.now());
         try {
-          const res = await runOneShot(config.hermes.profiles.tally, buildTallyPrompt(messages));
+          const res = await this.deps.run(config.hermes.profiles.tally, buildTallyPrompt(messages));
           const now = Date.now();
           this.store.addCost('tally', res.usage, res.costUsd, conv.id, now);
           const parsed = parseTallyResponse(res.text);
           if (!parsed) throw new Error('Jawaban Tally bukan JSON yang valid');
+          const needsHuman = parsed.needsHuman || escalation !== null;
           this.store.markAnalyzed(
             conv.id,
             upto,
             {
-              needsHuman: parsed.needsHuman,
-              reason: parsed.needsHumanReason,
+              needsHuman,
+              reason: needsHuman ? (parsed.needsHumanReason ?? escalation) : null,
               summary: parsed.summary,
               customerName: parsed.order?.customerName ?? null,
             },
             now,
           );
-          if (parsed.needsHuman && conv.status !== 'needs_human') {
+          if (parsed.needsHuman && !escalation && conv.status !== 'needs_human') {
             this.store.addEvent({
               ts: now,
               agent: 'tally',
@@ -145,7 +185,12 @@ export class HermesWorker implements StatusProvider {
           this.log(`tally: ${message}`);
           // Setelah beberapa kali gagal, lewati chat ini supaya token tidak terus terbakar untuk hal yang sama.
           if (this.bump(conv.id) >= MAX_ATTEMPTS) {
-            this.store.markAnalyzed(conv.id, upto, { needsHuman: false, reason: null, summary: null, customerName: null }, Date.now());
+            this.store.markAnalyzed(
+              conv.id,
+              upto,
+              { needsHuman: escalation !== null, reason: escalation, summary: null, customerName: null },
+              Date.now(),
+            );
             this.attempts.delete(conv.id);
           }
         }
@@ -159,13 +204,13 @@ export class HermesWorker implements StatusProvider {
   }
 
   async runPing(): Promise<void> {
-    if (!profileExists(config.hermes.profiles.ping)) return;
+    if (!this.deps.profileExists(config.hermes.profiles.ping)) return;
     await this.exclusive(async () => {
       const orders = this.store.unpaidOrdersNeedingFollowup(Date.now(), FOLLOWUP_AFTER, 10);
       if (orders.length === 0) return;
       const runId = this.store.startRun('ping', 'followup', null, Date.now());
       try {
-        const res = await runOneShot(config.hermes.profiles.ping, buildPingPrompt(orders, Date.now()));
+        const res = await this.deps.run(config.hermes.profiles.ping, buildPingPrompt(orders, Date.now()));
         const now = Date.now();
         this.store.addCost('ping', res.usage, res.costUsd, null, now);
         const drafts = parsePingResponse(res.text, new Set(orders.map((o) => o.code)));
@@ -211,7 +256,7 @@ export class HermesWorker implements StatusProvider {
     };
     return {
       echo,
-      tally: background('tally', 'Merekap chat terbaru', 'Menunggu chat selesai'),
+      tally: background('tally', 'Merekap pesanan baru', 'Menunggu order masuk'),
       ping: background('ping', 'Menulis pengingat', `Cek berikutnya ${clock(this.nextPingAt, config.timeZone)}`),
     };
   }

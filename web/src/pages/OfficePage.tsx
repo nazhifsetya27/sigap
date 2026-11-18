@@ -6,7 +6,7 @@ import { idr } from '../format';
 
 const JOBS: Record<AgentKey, string> = {
   echo: 'Menjawab chat pelanggan di WhatsApp dari katalog dan aturan toko. Komplain dan retur diteruskan ke Anda.',
-  tally: 'Membaca chat yang sudah selesai, merekap pesanan dan totalnya, dan menandai chat yang butuh admin.',
+  tally: 'Merekap pesanan dari chat yang berakhir dengan order. Chat tanpa order tidak ia sentuh, jadi tidak ada token terbuang.',
   ping: 'Menulis draf pengingat untuk pesanan yang belum dibayar. Pengirimannya tetap di tangan Anda.',
 };
 

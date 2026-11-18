@@ -7,7 +7,7 @@ Tiga admin itu:
 | Admin | Tugas | Cara kerja |
 |---|---|---|
 | **Echo** | CS WhatsApp | Menjawab pelanggan dari katalog dan aturan toko. Komplain diteruskan ke Anda. |
-| **Tally** | Rekap order | Membaca chat yang sudah selesai, mencatat pesanan dan totalnya, menandai chat yang butuh admin. |
+| **Tally** | Rekap order | Mencatat pesanan dan totalnya dari chat yang berakhir dengan order. Chat tanpa order tidak ia sentuh. |
 | **Ping** | Follow-up tagihan | Menulis draf pengingat untuk pesanan yang belum dibayar. Anda yang mengirim. |
 
 Ketiganya adalah profil [Hermes Agent](https://hermes-agent.nousresearch.com). Model bahasanya bebas selama kompatibel dengan API OpenAI; bawaan repo ini memakai DeepSeek V4.1 Flash di [Fenrir](https://fenrir.lio.id).
@@ -64,6 +64,7 @@ Portal mendengarkan di `127.0.0.1:4310`. Untuk membukanya lewat domain, pakai `d
 ## Soal angka biaya
 
 - Biaya Echo dibaca dari catatan pemakaian Hermes per percakapan. Biaya Tally dan Ping dicatat tiap kali mereka dijalankan.
+- Tally hanya dijalankan bila Echo menulis pesan "Rekap: ... total ...". Operan ke admin dikenali dari kalimat Echo "teruskan ke admin", tanpa memanggil model. Karena itu kalimat-kalimat tersebut jangan dihapus dari `SOUL.md` Echo.
 - "Kuat berapa hari" adalah proyeksi: biaya ketiga admin dibagi jumlah percakapan terukur, dikalikan asumsi chat per hari. Proyeksi baru muncul setelah ada minimal 3 percakapan terukur.
 - Saldo dan kurs diisi sendiri di halaman Pengaturan. Portal tidak membaca saldo dari penyedia model.
 - Biaya pesan WhatsApp dari Meta, bila kelak memakai API resmi, belum dihitung.
