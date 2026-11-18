@@ -44,8 +44,9 @@ create_profile() {
   "$HERMES_BIN" profile create "$name" --no-alias --no-skills --description "$description" </dev/null >/dev/null
   cp "$ROOT/hermes/$template/config.yaml" "$dir/config.yaml"
   cp "$ROOT/hermes/$template/SOUL.md" "$dir/SOUL.md"
-  # Hanya key penyedia model yang disalin. Rahasia lain di profil utama tidak ikut.
-  (umask 077 && grep -m1 "^${KEY_NAME}=" "$HERMES_HOME/.env" >>"$dir/.env")
+  # Hermes versi baru menyalin seluruh .env profil utama ke profil baru. Berkas itu ditimpa
+  # supaya profil Sigap hanya memegang key penyedia model, bukan rahasia lain milik Anda.
+  (umask 077 && grep -m1 "^${KEY_NAME}=" "$HERMES_HOME/.env" >"$dir/.env")
   chmod 600 "$dir/.env"
   echo "Profil '$name' dibuat."
 }
